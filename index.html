@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Loja PIX - Demo com Admin Melhorado</title>
+  <title>Loja PIX - Demo</title>
   <style>
     :root{--accent:#0b84ff;--muted:#666}
     body{font-family:Inter,Segoe UI,Arial;margin:0;background:#f5f7fb;color:#111}
@@ -113,7 +113,7 @@
 
 <script>
 // ======= armazenamento local e estado =======
-const LS_PRODUCTS = 'hk_products_v2'
+const LS_PRODUCTS = 'hk_products_v1'
 const LS_CART = 'hk_cart_v1'
 const LS_STORE = 'hk_store_cfg_v1'
 const LS_ADMIN = 'hk_admin_logged_in'
@@ -198,7 +198,11 @@ function persistCart(){ localStorage.setItem(LS_CART, JSON.stringify(cart)) }
 
 // ======= checkout / PIX =======
 function gerarTextoPIX(amount, key, receiver, reference){
-  return `Pagamento via PIX\nChave: ${key}\nRecebedor: ${receiver}\nValor: R$ ${Number(amount).toFixed(2)}\nReferência: ${reference}`
+  return `Pagamento via PIX
+Chave: ${key}
+Recebedor: ${receiver}
+Valor: R$ ${Number(amount).toFixed(2)}
+Referência: ${reference}`
 }
 
 function generatePIXQr(data){
@@ -233,7 +237,8 @@ function checkoutPrepare(){
 
 function copiarTexto(t){ const textarea = document.createElement('textarea'); textarea.value = unescapeHtml(t); document.body.appendChild(textarea); textarea.select(); document.execCommand('copy'); textarea.remove(); alert('Instruções copiadas para a área de transferência') }
 
-function escapeHtml(s){ return s.replace(/'/g, "\\'").replace(/\n/g,'\\n') }
+function escapeHtml(s){ return s.replace(/'/g, "\'").replace(/
+/g,'\n') }
 function unescapeHtml(s){ return s }
 
 // ======= admin =======
@@ -286,18 +291,11 @@ function deleteProduct(id){
   alert('Produto excluído.')
 }
 
-function toggleAdmin(){
-  if(!isAdmin){
-    showLoginPanel()
-  } else {
-    logoutAdmin()
-  }
-}
-
 function showLoginPanel(){
+  document.getElementById('adminPanel').style.display = 'block'
   document.getElementById('loginPanel').style.display = 'block'
   document.getElementById('adminContent').style.display = 'none'
-  document.getElementById('adminPanel').style.display = 'block'
+  document.getElementById('btnAdminToggle').innerText = 'Entrar como Admin'
 }
 
 function loginAdmin(){
@@ -311,6 +309,102 @@ function loginAdmin(){
     document.getElementById('loginPass').value = ''
     document.getElementById('loginPanel').style.display = 'none'
     document.getElementById('adminContent').style.display = 'block'
+    document.getElementById('btnAdminToggle').innerText = 'Painel aberto'
     renderAdminProducts()
     loadAdminValues()
-    document.getElementById('btnAdminToggle').innerText = 'Painel
+  } else {
+    alert('Credenciais incorretas.')
+  }
+}
+
+function logoutAdmin(){
+  isAdmin = false
+  localStorage.removeItem(LS_ADMIN)
+  document.getElementById('adminPanel').style.display = 'none'
+  document.getElementById('modeLabel').innerText = 'Visão pública'
+  document.getElementById('btnAdminToggle').innerText = 'Entrar como Admin'
+}
+
+function toggleAdmin(){
+  const panel = document.getElementById('adminPanel')
+  if(!panel) return
+  if(panel.style.display === 'block'){
+    panel.style.display = 'none'
+    return
+  }
+  // show panel; if already logged in, show admin content
+  panel.style.display = 'block'
+  if(isAdmin){
+    document.getElementById('loginPanel').style.display = 'none'
+    document.getElementById('adminContent').style.display = 'block'
+    document.getElementById('btnAdminToggle').innerText = 'Painel aberto'
+    document.getElementById('modeLabel').innerText = 'Admin'
+    renderAdminProducts(); loadAdminValues()
+  } else {
+    document.getElementById('loginPanel').style.display = 'block'
+    document.getElementById('adminContent').style.display = 'none'
+    document.getElementById('btnAdminToggle').innerText = 'Entrar como Admin'
+  }
+}
+
+function loadAdminValues(){
+  document.getElementById('pixKey').value = storeCfg.pixKey || ''
+  document.getElementById('receiverName').value = storeCfg.receiverName || ''
+}
+
+function addOrUpdateProduct(){
+  const name = document.getElementById('pName').value.trim();
+  const price = parseFloat(document.getElementById('pPrice').value.replace(',','.'))
+  const stock = parseInt(document.getElementById('pStock').value)
+  const image = document.getElementById('pImage').value.trim()
+  if(!name || isNaN(price) || isNaN(stock)) return alert('Preencha nome, preço e estoque corretamente')
+  const nextId = products.length? Math.max(...products.map(p=>p.id))+1:1
+  const prod = {id: nextId,name,price,stock,image}
+  products.push(prod)
+  localStorage.setItem(LS_PRODUCTS, JSON.stringify(products))
+  renderProducts()
+  renderAdminProducts()
+  alert('Produto adicionado')
+  document.getElementById('pName').value=''; document.getElementById('pPrice').value=''; document.getElementById('pStock').value=''; document.getElementById('pImage').value=''
+}
+
+function saveStoreCfg(){
+  storeCfg.pixKey = document.getElementById('pixKey').value.trim()
+  storeCfg.receiverName = document.getElementById('receiverName').value.trim()
+  localStorage.setItem(LS_STORE, JSON.stringify(storeCfg))
+  alert('Configurações salvas')
+}
+
+// small product viewer
+function viewProduct(id){
+  const p = products.find(x=>x.id===id)
+  if(!p) return
+  alert(`${p.name}
+Preço: ${currency(p.price)}
+Estoque: ${p.stock}`)
+}
+
+// bind events
+document.getElementById('btnAdminToggle').addEventListener('click', toggleAdmin)
+document.getElementById('btnAddProduct').addEventListener('click', addOrUpdateProduct)
+document.getElementById('btnLogoutAdmin').addEventListener('click', logoutAdmin)
+document.getElementById('btnCheckout').addEventListener('click', checkoutPrepare)
+document.getElementById('pixKey').addEventListener('blur', saveStoreCfg)
+document.getElementById('receiverName').addEventListener('blur', saveStoreCfg)
+document.getElementById('btnLogin').addEventListener('click', loginAdmin)
+document.getElementById('btnSaveStoreCfg').addEventListener('click', saveStoreCfg)
+
+// initial render
+renderProducts(); renderCart();
+if(isAdmin){
+  document.getElementById('adminPanel').style.display = 'block'
+  document.getElementById('adminContent').style.display = 'block'
+  document.getElementById('loginPanel').style.display = 'none'
+  document.getElementById('modeLabel').innerText = 'Admin'
+  document.getElementById('btnAdminToggle').innerText = 'Painel aberto'
+  renderAdminProducts(); loadAdminValues()
+}
+
+</script>
+</body>
+</html>
